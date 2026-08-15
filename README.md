@@ -28,10 +28,16 @@ pip install -e .
 python scripts/fetch_data.py      # one time: gets the reference optical tables
 ```
 
-**The reference optical tables are not in this repository.** The upstream GIOP repo
-carries no licence file, so its terms are unresolved, and redistributing its tables would
-pass that question on to you. `scripts/fetch_data.py` downloads them from the original
-source, pinned to commit `ef9b93f`. See
+`scripts/fetch_data.py` copies the reference optical tables out of
+[`upstream_matlab/`](upstream_matlab/README.md), the verbatim vendored copy of the
+original MATLAB GIOP (`kelseybisson/GIOP` @ `ef9b93f`), into `src/giop/data/` where the
+package looks for them. If that directory is missing it downloads them instead. The data
+directory is gitignored so the same bytes do not sit in two places and drift apart.
+
+⚠ **The upstream repository carries no licence file**, so the status of both the MATLAB
+and the tables is unresolved and the licence of this port does not extend to them. This
+is documented rather than assumed away: see
+[`upstream_matlab/README.md`](upstream_matlab/README.md) and
 [`src/giop/data/PROVENANCE.md`](src/giop/data/PROVENANCE.md).
 
 Dependencies: numpy, scipy, matplotlib. The Streamlit workbench adds streamlit; the

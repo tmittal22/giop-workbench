@@ -1,8 +1,13 @@
 # Reference tables — provenance and licensing status
 
-Every file here was copied unmodified from <https://github.com/kelseybisson/GIOP> @ `ef9b93f`,
-which is itself a fork of the reference GIOP distribution released by J. Werdell (NASA GSFC,
-July 2013). Byte-identical copies remain in `upstream_matlab/`.
+Every file here is copied by `scripts/fetch_data.py` out of `upstream_matlab/`, the
+verbatim vendored copy of <https://github.com/kelseybisson/GIOP> @ `ef9b93f`, itself a
+fork of the reference GIOP distribution released by J. Werdell (NASA GSFC, July 2013).
+The copies are byte-identical, and verified so: the SHA-256 prefixes printed by the fetch
+script match whether the files are taken from `upstream_matlab/` or downloaded fresh.
+
+This directory is **populated, not committed**. See `upstream_matlab/README.md` for the
+source, the commit, and the licence position.
 
 ## ⚠ Licensing is unresolved
 

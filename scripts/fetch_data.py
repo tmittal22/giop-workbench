@@ -2,24 +2,22 @@
 
     python scripts/fetch_data.py
 
-WHY THIS EXISTS INSTEAD OF THE FILES THEMSELVES. The upstream GIOP repository carries
-**no licence file**, so its terms are unresolved and redistributing its tables inside
-this repository would pass that unresolved question on to everyone who clones it. The
-underlying measurements are published science (Pope & Fry 1997, Bricaud et al. 1998,
-Morel et al. 2002, Ciotti & Bricaud 2006, Chase et al. 2017) and the encodings came
-through NASA GSFC, but neither fact is a licence.
+The tables live in the vendored upstream_matlab/ directory, and this copies them
+into src/giop/data/ where the package looks for them. If upstream_matlab/ is
+absent it downloads them instead, from the original repository at a pinned commit.
 
-So this script downloads them from the original public repository, which means you
-obtain them from the source on the same terms the source offers, rather than from a
-redistribution by someone with no right to redistribute.
+Two copies of the same bytes in one repository drift apart, so the package data
+directory is gitignored and populated by this script rather than committed.
 
-See src/giop/data/PROVENANCE.md for each file's citation and status.
+LICENCE. The upstream repository carries no licence file, so the status of these tables
+is unresolved. See upstream_matlab/README.md and src/giop/data/PROVENANCE.md.
 """
 
 from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import sys
 import urllib.error
 import urllib.request
@@ -44,11 +42,22 @@ DEST = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                     "src", "giop", "data")
 
 
+VENDORED = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "upstream_matlab")
+
+
 def fetch(name, dest_dir, timeout=60):
-    url = RAW.format(commit=COMMIT, name=name)
+    """Copy from the vendored upstream_matlab/ if present, else download."""
     out = os.path.join(dest_dir, name)
     if os.path.exists(out) and os.path.getsize(out) > 0:
         return "present", out, os.path.getsize(out)
+
+    local = os.path.join(VENDORED, name)
+    if os.path.exists(local) and os.path.getsize(local) > 0:
+        shutil.copyfile(local, out)
+        return "vendored", out, os.path.getsize(out)
+
+    url = RAW.format(commit=COMMIT, name=name)
     req = urllib.request.Request(url, headers={"User-Agent": "giop-fetch"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         data = r.read()
@@ -62,8 +71,10 @@ def fetch(name, dest_dir, timeout=60):
 def main():
     if not os.path.isdir(DEST):
         os.makedirs(DEST)
-    print("Fetching %d reference tables from kelseybisson/GIOP @ %s\n"
-          % (len(FILES), COMMIT[:8]))
+    src = ("the vendored upstream_matlab/" if os.path.isdir(VENDORED)
+           else "kelseybisson/GIOP @ %s (download)" % COMMIT[:8])
+    print("Populating src/giop/data/ with %d reference tables from %s\n"
+          % (len(FILES), src))
     failed = []
     for name in FILES:
         try:

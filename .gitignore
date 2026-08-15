@@ -6,13 +6,9 @@ dist/
 .pytest_cache/
 figures/*.png
 
-# Reference optical tables are NOT redistributed: the upstream GIOP repository has no
-# licence file, so its terms are unresolved. Run scripts/fetch_data.py to obtain them
-# from the original source. See src/giop/data/PROVENANCE.md.
+# The package data directory is POPULATED, not authored: scripts/fetch_data.py copies
+# the tables out of the vendored upstream_matlab/, or downloads them if it is absent.
+# Kept out of git so the same bytes do not sit in two places and drift apart.
 src/giop/data/*.txt
 src/giop/data/*.mat
 src/giop/data/*.dat
-
-# Upstream MATLAB is a clone, not redistributed (no licence file upstream).
-# Get it with: git clone https://github.com/kelseybisson/GIOP upstream_matlab
-upstream_matlab/
