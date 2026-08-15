@@ -1,5 +1,12 @@
 """Data ingestion: field spectroradiometer files in, R_rs on an inversion grid out."""
 
+from .fieldrrs import (
+    FieldSpectrum,
+    brdf_args_from_meta,
+    is_fieldrrs_csv,
+    read_fieldrrs_batch,
+    read_fieldrrs_csv,
+)
 from .generic import read_csv_spectra, write_result_csv
 from .resample import SATELLITE_BANDS, align, bin_spectrum, gaussian_resample
 from .rrs import (
@@ -18,4 +25,6 @@ __all__ = [
     "residual_correction", "RrsResult", "RHO_MOBLEY1999",
     "align", "bin_spectrum", "gaussian_resample", "SATELLITE_BANDS",
     "read_csv_spectra", "write_result_csv",
+    "read_fieldrrs_csv", "read_fieldrrs_batch", "is_fieldrrs_csv",
+    "FieldSpectrum", "brdf_args_from_meta",
 ]

@@ -17,9 +17,6 @@ email = "mittal.tushar22@gmail.com"
 [project.optional-dependencies]
 test = ["pytest>=7"]
 
-[project.scripts]
-giop-gui = "giop.gui:main"
-
 [tool.setuptools.packages.find]
 where = ["src"]
 

@@ -40,8 +40,30 @@ is documented rather than assumed away: see
 [`upstream_matlab/README.md`](upstream_matlab/README.md) and
 [`src/giop/data/PROVENANCE.md`](src/giop/data/PROVENANCE.md).
 
-Dependencies: numpy, scipy, matplotlib. The Streamlit workbench adds streamlit; the
-desktop GUI uses tkinter, which ships with CPython.
+Dependencies: numpy, scipy, matplotlib, and streamlit for the workbench.
+
+## From the field, without retyping anything
+
+[`fieldrrs`](https://github.com/tmittal22/fieldrrs) turns NaturaSpec `.sed` scans into
+R_rs. This package reads its output **with the metadata**, not just the two data columns:
+
+```python
+from giop.io import read_fieldrrs_csv, brdf_args_from_meta
+from giop.aopiop import normalize_brdf
+
+fs = read_fieldrrs_csv("station1.csv")
+for msg in fs.review():        # high wind vs rho, nir_zero on turbid water,
+    print("CHECK:", msg)       # missing geometry, negative visible bands
+
+args = brdf_args_from_meta(fs)               # None if the geometry was not recorded
+rrs, _ = normalize_brdf(fs.wavelength, fs.rrs, *args)
+```
+
+The reason for carrying the header through: rho depends on the wind speed, the BRDF
+correction (G18) needs the solar and viewing angles, and `nir_zero` is invalid in turbid
+water. A hand-copied column of numbers loses all of it, and with it any chance of the
+software warning you. The workbench's **fieldrrs output** data source does the same and
+offers one-click BRDF using the recorded geometry.
 
 ## The Streamlit workbench
 
@@ -123,11 +145,6 @@ change it.
 
 If your data is already R_rs, `giop.io.read_csv_spectra` reads CSV in either layout.
 
-## GUI
-
-```bash
-giop-gui           # or: python -m giop.gui
-```
 
 Load a `.sed` triplet or a CSV, set the panel reflectance / ρ / residual correction, pick the
 wavelength window and the GIOP parameterisation, invert, and export. The assumptions panel is

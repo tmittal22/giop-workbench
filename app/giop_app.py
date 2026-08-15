@@ -31,7 +31,10 @@ from giop import GiopConfig, get_oc, giop                       # noqa: E402
 from giop.diagnostics import (                                   # noqa: E402
     DEGENERACY_THRESHOLD_DEG, condition_number, eigenvector_angles,
 )
-from giop.io import RHO_MOBLEY1999, read_sed, rrs_from_sed_triplet  # noqa: E402
+from giop.io import (                                             # noqa: E402
+    RHO_MOBLEY1999, brdf_args_from_meta, read_fieldrrs_batch,
+    read_fieldrrs_csv, read_sed, rrs_from_sed_triplet,
+)
 from giop.model import ConfigurationError                        # noqa: E402
 from giop.sensors import SENSORS, convolve           # noqa: E402
 from giop.uncertainty import linearised_covariance, shape_ensemble  # noqa: E402
@@ -149,7 +152,8 @@ tabs = st.tabs(["1 · Data", "2 · Sensor view", "3 · Inversion", "4 · Uncerta
 with tabs[0]:
     st.subheader("Load a spectrum")
     mode = st.radio("Source", ["Demo (published GIOP example)",
-                               "NaturaSpec .sed scans", "CSV of R_rs"],
+                               "NaturaSpec .sed scans", "fieldrrs output",
+                               "CSV of R_rs"],
                     horizontal=True)
 
     if mode.startswith("Demo"):
@@ -189,6 +193,50 @@ with tabs[0]:
                 S.notes = res.notes
             except Exception as exc:
                 st.error(f"{type(exc).__name__}: {exc}")
+
+    elif mode == "fieldrrs output":
+        st.markdown(
+            "Read a CSV written by [`fieldrrs`](https://github.com/tmittal22/fieldrrs) "
+            "directly, **with its metadata**. Either a per-station file (which carries "
+            "rho, the glint method, the viewing and solar geometry, the wind speed and "
+            "the footprint) or `rrs_all_stations.csv` (bands only, no conditions).")
+        up = st.file_uploader("fieldrrs CSV", type=["csv"])
+        if up is not None:
+            paths = save_uploads([up])
+            try:
+                if "all_stations" in up.name:
+                    specs = read_fieldrrs_batch(paths[0])
+                    which = st.selectbox("Station", [x.name for x in specs])
+                    fs = next(x for x in specs if x.name == which)
+                else:
+                    fs = read_fieldrrs_csv(paths[0])
+                st.success("%s: %d bands, %.0f-%.0f nm"
+                           % (fs.name, len(fs.wavelength), fs.wavelength.min(),
+                              fs.wavelength.max()))
+                issues = fs.review()
+                for msg in issues:
+                    st.warning(msg)
+                if not issues:
+                    st.info("Nothing flagged in the measurement metadata.")
+                if fs.meta:
+                    st.caption("  ·  ".join("%s = %s" % kv for kv in
+                                            sorted(fs.meta.items())))
+                args = brdf_args_from_meta(fs)
+                apply_brdf = False
+                if args:
+                    apply_brdf = st.checkbox(
+                        "Apply BRDF normalisation using the recorded geometry "
+                        "(θ_s %.0f°, θ_v %.0f°, Δφ %.0f°)" % args[1:], value=False)
+                if st.button("Use this spectrum", type="primary"):
+                    wl, rrs = fs.wavelength, fs.rrs
+                    tag = "fieldrrs: %s" % fs.name
+                    if apply_brdf and args:
+                        from giop.aopiop import normalize_brdf
+                        rrs, _ = normalize_brdf(wl, rrs, *args)
+                        tag += " + BRDF"
+                    S.wl, S.rrs, S.source, S.notes = wl, rrs, tag, issues
+            except Exception as exc:
+                st.error("%s: %s" % (type(exc).__name__, exc))
 
     else:
         up = st.file_uploader("CSV: first column wavelength (nm), second R_rs (sr⁻¹)",

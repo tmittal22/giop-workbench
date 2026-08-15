@@ -186,14 +186,14 @@ much the reader has been exercised.
 
 ---
 
-## 8. GUI
+## 8. The Streamlit workbench
 
-The GUI was driven programmatically through its own event loop on a live X display: construct
-the application, load the demo spectrum, run the inversion, read the status line, export.
+The app is driven programmatically through Streamlit's own test harness: load the demo
+spectrum, run the inversion, read the metrics.
 
 - It returns `[0.044119, 0.003278, 0.369303]`, i.e. the golden values, so the GUI path and the
   API path are the same calculation and cannot drift apart silently
-  (`tests/test_gui.py::test_gui_reproduces_the_golden_eigenvalues`).
+  (`tests/test_app.py::test_demo_inversion_reproduces_the_published_eigenvalues`).
 - Its status line reports the prescribed S_dg and eta and the QC verdict, so a user can see
   what the retrieval was conditional on.
 - Selecting Morel + LMI produces the `ConfigurationError` message rather than raising out of
