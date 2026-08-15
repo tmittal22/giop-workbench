@@ -587,6 +587,8 @@ is a result quoted without its error bar.
 | A9 | Unweighted least squares in reflectance | (G11) | blue-green bands dominate; no uncertainty is produced |
 | A10 | ρ is a single scalar (field data only) | (G17) | dominant error term above water; sea-state dependent |
 | A11 | Reference panel is Lambertian, R_p known | (G16) | direct multiplicative bias on all R_rs |
+| A12 | R_rs is reported at the MEASUREMENT geometry, not nadir-normalised | (G1) | 8-13 % against a satellite product; correctable with G18, which itself omits the transmittance term |
+| A13 | Satellite band response is a nominal Gaussian, except MODIS-Aqua | (G19) | band placement alone moves R_rs by several percent between sensors |
 
 ---
 
@@ -608,8 +610,47 @@ is a result quoted without its error bar.
 | G14 | `empirical.get_oc` | `get_oc.m` |
 | G15 | `empirical.raman_correction` | `single_wv_comps.m:105-117` |
 | G16, G17 | `io.rrs.rrs_above_water` | none (new) |
+| G18 | `aopiop.brdf_factor`, `normalize_brdf` | derived from `morel_fq.m`'s `fc` |
+| G19 | `sensors.convolve` | `spectralresponse_modisa.mat` |
+| G20 | `inversion._invert_bounded` | none (new) |
 
 ---
+
+## 12b. Additions beyond GIOP-DC
+
+All opt-in; the defaults still reproduce the published model exactly.
+
+### G18 — BRDF normalisation to nadir viewing with the sun overhead
+
+Because r_rs = (f/Q) u and u is a property of the water alone, the ratio between two
+sun-sensor geometries is the ratio of their f/Q:
+
+$$ R_{rs}(0,0) = R_{rs}(\theta_s,\theta_v,\Delta\varphi)\;
+   \frac{f/Q(0,0)}{f/Q(\theta_s,\theta_v',\Delta\varphi)} \tag{G18} $$
+
+with θ_v′ the in-water angle. That ratio is exactly the `fc` already returned by
+`morel_fq_geometry`. **The air-water transmittance and refraction term is not
+included** (A12).
+
+### G19 — spectral convolution to a sensor band
+
+$$ R_{rs}^{band} = \frac{\int S(\lambda) R_{rs}(\lambda)\,d\lambda}
+                        {\int S(\lambda)\,d\lambda} \tag{G19} $$
+
+with S the spectral response: measured for MODIS-Aqua, a nominal Gaussian otherwise
+(A13). Applied to R_rs only, never to retrieved IOPs, because (G1) is nonlinear in the
+IOPs and band-averaging does not commute with it.
+
+### G20 — bounded, noise-weighted inversion
+
+$$ \hat{\mathbf{x}} = \arg\min_{\mathbf{0}\le\mathbf{x}\le\mathbf{u}}
+   \sum_i \left[\frac{r_{rs}(\lambda_i)-\hat r_{rs}(\lambda_i;\mathbf{x})}
+   {\sigma_i}\right]^2 \tag{G20} $$
+
+Two changes from (G11): amplitudes are bounded below at zero, and residuals are weighted
+by a per-band σ so χ²_ν is interpretable. Bounding stops the retrieval being unphysical;
+it does not make the prescribed shapes right, and a railed zero is itself a statement
+that the model is wrong for that water.
 
 ## 13. Changelog
 

@@ -6,7 +6,7 @@ Reproduce with:
 ```bash
 source ~/miniforge3/etc/profile.d/conda.sh && conda activate claude-science-env
 cd giop_python && export PYTHONPATH=$PWD/src
-python -m pytest tests/ -q          # 89 passed, 1 skipped
+python -m pytest tests/ -q          # 114 passed, 1 skipped
 python examples/demo_giop.py        # prints sect. 1 and 5, writes figures/demo_giop.png
 ```
 
@@ -206,10 +206,57 @@ CSV export was exercised and produces the documented columns.
 ## 9. Suite status
 
 ```
-89 passed, 1 skipped in 1.43 s
+114 passed, 1 skipped in 6.9 s
 ```
 
 Skipped: the real-`.sed` test in §7. GUI tests skip automatically without a display.
+
+## 9b. Additions made after the original port, and their evidence
+
+### Bounded solver (§3 of the guide)
+
+GIOP-DC is unconstrained and returns negative absorption. Measured on the demo spectrum,
+sweeping the prescribed S_dg:
+
+| S_dg (nm⁻¹) | fmin aph | bounded aph | fmin a_dg | bounded a_dg |
+|---|---|---|---|---|
+| 0.010 | **−0.2752** | 0.0000 | 0.0970 | 0.0829 |
+| 0.012 | **−0.0233** | 0.0000 | 0.0748 | 0.0734 |
+| 0.018 | +0.3693 | 0.3709 | 0.0441 | 0.0444 |
+| 0.025 | +0.5772 | 0.5838 | 0.0299 | 0.0301 |
+
+Agreement with GIOP-DC is within 2 % where the answer is physical, and the bound binds
+exactly where the published solver goes unphysical. Control test asserts GIOP-DC *does*
+go negative, so the bounded test is not vacuous.
+
+### Satellite band convolution
+
+MODIS-Aqua uses the **measured** SRF shipped with the reference code. Column-to-band
+identity is verified against the data itself rather than assumed: each nominal label must
+fall inside its own band's half-maximum range. That test caught a first attempt using a
+fixed 12 nm tolerance, which fails legitimately on the 2130 nm band (measured centroid
+2114 nm, 52 nm wide and asymmetric).
+
+A flat spectrum convolves to itself for every sensor (rtol 1e-9), and a linear ramp
+convolves to the value at band centre (rtol 2e-2). Bands whose response falls more than
+half outside the measured range return NaN and are reported, not extrapolated.
+
+### BRDF normalisation
+
+The Morel f/Q ratio, exposed via `aopiop.brdf_factor`. Graded against the definitional
+case: at nadir with the sun overhead the factor is **exactly 1.0** (atol 1e-12). At
+realistic field geometries it is material:
+
+| geometry | mean correction |
+|---|---|
+| θ_s 30°, 40°/135° | −7.5 % |
+| θ_s 45°, 40°/135° | −10.5 % |
+| θ_s 60°, 40°/135° | −12.7 % |
+| θ_s 30°, 40°/90° | −4.7 % |
+
+⚠ The air–water transmittance and refraction term is **not** included; it is a few
+percent at 40° against an f/Q ratio of 10 %+. This is not a complete NASA-style exact
+normalisation and is not presented as one.
 
 ## 10. Open items
 

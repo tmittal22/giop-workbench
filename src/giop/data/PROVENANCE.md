@@ -42,7 +42,7 @@ the port itself do **not** extend to it.
 | `morel_fq_appb.txt` | 24 × 7: f0, sf, q0, sq blocks over 7 wavelengths × 6 chlorophylls | `aopiop.morel_fq_appb` | Morel et al. (2002) Appendix B, Applied Optics 41(30), 6289–6306, doi:10.1364/AO.41.006289 |
 | `morel_f.txt`, `morel_fp.txt`, `morel_mud.txt` | 490 × 8: solar zenith, wavelength (70 values, 5 nm, 352.5–697.5 nm), then 6 chlorophyll columns [0.03 … 10] | `aopiop.morel_read` | lookup tables provided by A. Morel, per `morel_read.m` header |
 | `morel_fq.dat` | 4284 × 13 = (7 λ × 6 θ_s × 6 Chl × 17 nadir) rows × 13 azimuths | `aopiop.read_fq` | translated from SeaDAS/l2gen, per `read_fq.m` header |
-| `spectralresponse_modisa.mat` | 1821 × 17 MODIS-Aqua spectral response functions | not yet wired into `io.resample`; shipped for band convolution | NASA OBPG |
+| `spectralresponse_modisa.mat` | 1821 × 17 MODIS-Aqua spectral response functions | `sensors.modis_srf`, `sensors.convolve` (the measured MODIS-Aqua response) | NASA OBPG |
 
 ## Not carried over
 
