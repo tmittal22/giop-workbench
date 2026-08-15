@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "giop"
+version = "0.1.0"
+description = "Python port of the GIOP ocean-colour semi-analytical inversion, with field-spectroradiometer ingestion"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.22", "scipy>=1.8", "matplotlib>=3.5"]
+
+[[project.authors]]
+name = "Tushar Mittal"
+email = "mittal.tushar22@gmail.com"
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+giop-gui = "giop.gui:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"giop.data" = ["*.txt", "*.mat", "*.dat", "PROVENANCE.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error::UserWarning"]

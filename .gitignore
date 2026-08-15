@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+figures/*.png
+
+# Reference optical tables are NOT redistributed: the upstream GIOP repository has no
+# licence file, so its terms are unresolved. Run scripts/fetch_data.py to obtain them
+# from the original source. See src/giop/data/PROVENANCE.md.
+src/giop/data/*.txt
+src/giop/data/*.mat
+src/giop/data/*.dat

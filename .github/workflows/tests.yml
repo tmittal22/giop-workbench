@@ -1,0 +1,46 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy scipy matplotlib pytest streamlit
+
+      # The reference tables are not in the repository (upstream has no licence), so
+      # they are fetched from the original source before anything can run.
+      - name: Fetch reference optical tables
+        run: python scripts/fetch_data.py
+
+      - name: Test
+        run: PYTHONPATH=src python -m pytest tests/ -q
+
+      - name: Reproduce the published GIOP eigenvalues
+        run: |
+          PYTHONPATH=src python - <<'PY'
+          import numpy as np
+          from giop import giop, get_oc
+          wl  = np.array([412.,443,490,510,555,670])
+          rrs = np.array([0.003478,0.004074,0.004465,0.003588,0.002494,0.000051])
+          chl = float(get_oc(rrs[1],rrs[2],rrs[3],rrs[4],'oc4'))
+          x = giop(wl, rrs, chl, qc=0.33).x
+          print("fmin:", x)
+          assert np.allclose(x, [0.0441, 0.0033, 0.3693], atol=5e-5), x
+          y = giop(wl, rrs, chl, inv='lmi', qc=0.33).x
+          print("lmi :", y)
+          assert np.allclose(y, [0.0414, 0.0022, 0.1058], atol=5e-5), y
+          print("published eigenvalues reproduced")
+          PY
