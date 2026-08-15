@@ -12,3 +12,7 @@ figures/*.png
 src/giop/data/*.txt
 src/giop/data/*.mat
 src/giop/data/*.dat
+
+# Upstream MATLAB is a clone, not redistributed (no licence file upstream).
+# Get it with: git clone https://github.com/kelseybisson/GIOP upstream_matlab
+upstream_matlab/
