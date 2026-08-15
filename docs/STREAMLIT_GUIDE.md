@@ -17,7 +17,7 @@ clean-looking answer.
 
 ## 1 · Data
 
-Three ways in.
+Four ways in.
 
 **Demo** — the six-band example from upstream `run_giop.m`. Use it to confirm the install:
 GIOP-DC must return a_dg(443) = 0.0441, b_bp(443) = 0.0033, aph amplitude = 0.3693.
@@ -26,6 +26,27 @@ GIOP-DC must return a_dg(443) = 0.0441, b_bp(443) = 0.0033, aph amplitude = 0.36
 out and the panel radiance comes from the water file's own `Rad. (Ref.)` column, which is
 the DARWin reference-scan workflow. Set the panel reflectance, ρ and the residual glint
 correction. See `fieldrrs/FIELD_PROTOCOL.md` for how to collect the scans.
+
+**fieldrrs output** — a CSV written by
+[`fieldrrs`](https://github.com/tmittal22/fieldrrs), read **with its metadata**. Either a
+per-station file or `rrs_all_stations.csv`.
+
+This is the one to use if the data came off a NaturaSpec, because the per-station file
+carries the conditions: ρ, the residual-glint method, the solar and viewing geometry, the
+wind speed, the panel reflectance and the instrument footprint. The panel then tells you
+what should change your interpretation rather than leaving you to remember it:
+
+- wind above ~5 m s⁻¹ while ρ is still 0.028, which biases blue R_rs high;
+- `nir_zero` applied, which deletes real signal in turbid water;
+- no geometry recorded, so the BRDF correction cannot be applied;
+- negative visible bands, meaning the glint subtraction over-corrected.
+
+If the geometry is present you get one-click BRDF normalisation using **the angles that
+were actually recorded**. If it is absent the button does not appear, because applying a
+geometry correction with a guessed geometry is worse than not applying one.
+
+The batch file carries bands only and no conditions, so it comes with that caveat
+attached.
 
 **CSV** — two columns, wavelength (nm) and R_rs (sr⁻¹).
 
@@ -63,6 +84,33 @@ and are reported, rather than being silently extrapolated.
 
 **Apply resampling** replaces the working spectrum with the sensor's bands, so you can
 ask "what would GIOP retrieve if this were a MODIS pixel?"
+
+### BRDF normalisation [EXT]
+
+Satellite ocean-colour products are **exact normalised** water-leaving reflectance: what
+you would see looking straight down with the sun overhead. Field data taken at 40° from
+nadir with the sun at 30–60° is a different quantity, and comparing the two without
+correcting compares two different things.
+
+Because r_rs = (f/Q)·u and u is a property of the water alone, the ratio between two
+geometries is just the ratio of their f/Q (THEORY.md G18). Measured:
+
+| geometry | correction |
+|---|---|
+| nadir, sun overhead | **exactly 1.000** (the definitional check) |
+| θ_s 30°, 40°/135° | −7.5 % |
+| θ_s 45°, 40°/135° | −10.5 % |
+| θ_s 60°, 40°/135° | −12.7 % |
+| θ_s 30°, 40°/90° | −4.7 % |
+
+So a field spectrum sits 8–13 % away from what a satellite reports on the same water,
+from geometry alone. The panel plots the corrected spectrum against the measured one and
+the percent correction beneath it.
+
+⚠ **This is the Morel f/Q ratio only.** The full normalisation also carries an air–water
+transmittance and refraction term that depends on viewing angle: a few percent at 40°,
+against an f/Q ratio that reaches 10 % or more. The dominant part is here and the
+remainder is not. Do not present this as a complete NASA-style exact normalisation.
 
 ---
 

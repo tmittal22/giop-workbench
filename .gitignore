@@ -4,7 +4,7 @@ build/
 dist/
 *.egg-info/
 .pytest_cache/
-figures/*.png
+# figures/demo_giop.png IS tracked: VALIDATION.md cites it as evidence.
 
 # The package data directory is POPULATED, not authored: scripts/fetch_data.py copies
 # the tables out of the vendored upstream_matlab/, or downloads them if it is absent.
