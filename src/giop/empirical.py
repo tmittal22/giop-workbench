@@ -8,7 +8,8 @@ import numpy as np
 
 from .matlab_compat import interp1
 
-__all__ = ["get_oc", "qaa_bbp", "raman_correction", "OC_ALGORITHMS"]
+__all__ = ["get_oc", "qaa_bbp", "raman_correction", "OC_ALGORITHMS",
+           "normalized_water_leaving_radiance"]
 
 # Coefficient table from get_oc.m:35-55 (OC v6, operational 2009).
 _OC_COEF = {
@@ -159,3 +160,21 @@ def raman_correction(wl, rrs, rrs443, rrs555, interpolate=False):
 
     rf = a * (rrs443 / rrs555) + b1 * np.asarray(rrs555, float) ** b2
     return rrs / (1.0 + rf)
+
+
+def normalized_water_leaving_radiance(wl, rrs):
+    """nLw = R_rs x F0, in W m^-2 sr^-1 nm^-1.
+
+    The normalised water-leaving radiance is the quantity satellite ocean-colour
+    products are distributed in, so this is what makes a calibrated field
+    spectroradiometer directly comparable with them. It is a pure unit change from R_rs,
+    carrying no extra assumption beyond the F0 spectrum itself.
+
+    Two things it does NOT do. It does not apply the BRDF correction, so the result is
+    still at the measurement geometry rather than nadir-normalised (THEORY.md A12); use
+    ``aopiop.normalize_brdf`` first if you want the exact-normalised product. And it
+    applies no Earth-Sun distance correction, F0 being the mean-distance value.
+    """
+    from .water import f0_solar
+
+    return np.asarray(rrs, dtype=float) * f0_solar(wl)

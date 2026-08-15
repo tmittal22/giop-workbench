@@ -142,3 +142,42 @@ class TestBoundedSolver:
         from giop.model import ConfigurationError
         with pytest.raises(ConfigurationError, match="bounded"):
             giop(DEMO_WL, DEMO_RRS, 0.5, inv="nonsense")
+
+
+class TestSolarIrradianceAndNlw:
+    """F0 and normalised water-leaving radiance: what an ABSOLUTE radiometer buys."""
+
+    WL = np.array([412.0, 443, 490, 510, 555, 670])
+
+    def test_f0_matches_published_values(self):
+        """Published F0 near 1.73 / 1.90 / 1.93 / 1.89 / 1.84 / 1.52 W m^-2 nm^-1.
+        Different F0 compilations differ by a few percent, so 8 % is the bar."""
+        from giop.water import f0_solar
+        pub = np.array([1.73, 1.90, 1.93, 1.89, 1.84, 1.52])
+        np.testing.assert_allclose(f0_solar(self.WL), pub, rtol=0.08)
+
+    def test_f0_carries_the_solar_fraunhofer_lines(self):
+        """This is what identifies the column as F0 rather than a smooth model: the
+        Ca II H&K doublet cuts ~40 % out of the continuum at 390-400 nm."""
+        from giop.water import f0_solar
+        wl = np.arange(380.0, 420.0)
+        f = f0_solar(wl)
+        window = f[(wl >= 390) & (wl <= 400)]
+        assert window.min() / np.median(f) < 0.75
+
+    def test_f0_peaks_in_the_blue_green(self):
+        from giop.water import f0_solar
+        wl = np.arange(380.0, 1100.0)
+        assert 420 < wl[np.argmax(f0_solar(wl))] < 520
+
+    def test_nlw_is_rrs_times_f0(self):
+        from giop.empirical import normalized_water_leaving_radiance as nlw
+        from giop.water import f0_solar
+        rrs = np.full_like(self.WL, 3e-3)
+        np.testing.assert_allclose(nlw(self.WL, rrs), rrs * f0_solar(self.WL), rtol=1e-12)
+
+    def test_nlw_magnitude_is_sensible_for_clear_water(self):
+        """Clear-ocean nLw(443) is order 1 mW cm^-2 um^-1 sr^-1."""
+        from giop.empirical import normalized_water_leaving_radiance as nlw
+        v = nlw(np.array([443.0]), np.array([0.004]))[0] * 100.0   # to mW cm^-2 um^-1 sr^-1
+        assert 0.2 < v < 3.0, v
