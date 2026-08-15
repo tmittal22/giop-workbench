@@ -106,12 +106,16 @@ class TestConvolution:
         assert any(not used for *_, used in rows)
 
 
+@pytest.fixture(scope="module")
+def chl():
+    """Module-level: pytest >= 8.4 rejects a class-scoped fixture written as an
+    instance method, and older pytest never shared its state the way it looked like
+    it did."""
+    return float(get_oc(DEMO_RRS[1], DEMO_RRS[2], DEMO_RRS[3], DEMO_RRS[4], "oc4"))
+
+
 class TestBoundedSolver:
     SIGMA = np.sqrt((0.05 * np.abs(DEMO_RRS)) ** 2 + 2e-4 ** 2)
-
-    @pytest.fixture(scope="class")
-    def chl(self):
-        return float(get_oc(DEMO_RRS[1], DEMO_RRS[2], DEMO_RRS[3], DEMO_RRS[4], "oc4"))
 
     def test_agrees_with_giop_dc_where_the_answer_is_physical(self, chl):
         a = giop(DEMO_WL, DEMO_RRS, chl)

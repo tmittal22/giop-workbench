@@ -80,11 +80,15 @@ class TestLinearisedCovariance:
             linearised_covariance(result, 0.0)
 
 
+@pytest.fixture(scope="module")
+def ens():
+    """Module-level, not class-scoped-on-an-instance-method: pytest >= 8.4 rejects the
+    latter outright, and it silently did not share state before that either."""
+    chl = float(get_oc(RRS[1], RRS[2], RRS[3], RRS[4], "oc4"))
+    return shape_ensemble(WL, RRS, chl)
+
+
 class TestShapeEnsemble:
-    @pytest.fixture(scope="class")
-    def ens(self):
-        chl = float(get_oc(RRS[1], RRS[2], RRS[3], RRS[4], "oc4"))
-        return shape_ensemble(WL, RRS, chl)
 
     def test_all_members_converge_on_the_demo_spectrum(self, ens):
         assert ens["n_members"] == 60 and ens["n_failed"] == 0
