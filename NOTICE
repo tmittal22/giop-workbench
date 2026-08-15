@@ -1,0 +1,26 @@
+NOTICE — third-party content and licence scope
+==============================================
+
+The MIT licence in LICENSE covers the Python port and its documentation, tests and
+application code. It does NOT extend to the following, which are included here as
+third-party content:
+This MIT licence applies to the Python port and its documentation, tests and
+application code. It does NOT extend to:
+
+  upstream_matlab/     A verbatim copy of https://github.com/kelseybisson/GIOP
+                       @ ef9b93fe (J. Werdell, NASA GSFC, 2013; additions by
+                       K. Bisson, 2019). That repository carries NO licence
+                       file, so its terms are unresolved and the default is all
+                       rights reserved. Two files within it carry their own
+                       licences which govern regardless: fastsmooth.m
+                       (BSD-style, T. C. O'Haver) and psrf.m (GPL, S. Sarkka
+                       and A. Vehtari).
+
+  src/giop/data/       Reference optical tables copied out of upstream_matlab/
+                       by scripts/fetch_data.py. Same unresolved status. The
+                       underlying measurements are published science with their
+                       own citations; see src/giop/data/PROVENANCE.md.
+
+Cite the model, not this port:
+Werdell, P.J., et al. (2013), Applied Optics 52(10), 2019-2037,
+doi:10.1364/AO.52.002019

@@ -161,6 +161,13 @@ redistribution. The underlying optical data are published science (Pope & Fry 19
 Bricaud et al. 1998, Morel et al. 2002, Ciotti & Bricaud 2006); the `.txt` encodings came
 through NASA GSFC.
 
+## Licensing
+
+MIT for the port (`LICENSE`). **`upstream_matlab/` and `src/giop/data/` are excluded**
+and carry the unresolved upstream status: see [`NOTICE`](NOTICE),
+[`upstream_matlab/README.md`](upstream_matlab/README.md) and
+[`src/giop/data/PROVENANCE.md`](src/giop/data/PROVENANCE.md).
+
 ## Citing
 
 Cite the model, not this port:
