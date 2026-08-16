@@ -9,7 +9,7 @@ import numpy as np
 from .matlab_compat import interp1
 
 __all__ = ["get_oc", "qaa_bbp", "raman_correction", "OC_ALGORITHMS",
-           "normalized_water_leaving_radiance"]
+           "normalized_water_leaving_radiance", "atmospheric_transmittance"]
 
 # Coefficient table from get_oc.m:35-55 (OC v6, operational 2009).
 _OC_COEF = {
@@ -178,3 +178,38 @@ def normalized_water_leaving_radiance(wl, rrs):
     from .water import f0_solar
 
     return np.asarray(rrs, dtype=float) * f0_solar(wl)
+
+
+def atmospheric_transmittance(wl, ed, solar_zenith_deg):
+    """Total downward atmospheric transmittance from a MEASURED E_d spectrum.
+
+        T(lambda) = E_d(lambda) / (F0(lambda) * cos(theta_s))
+
+    This turns "the sky looked clear" into a number. F0 is the irradiance arriving at
+    the top of the atmosphere, cos(theta_s) projects it onto the horizontal plane the
+    collector measures, and the ratio is what survived the atmosphere. It needs an
+    absolutely calibrated irradiance channel; a reflectance instrument cannot produce it.
+
+    Indicative values in the visible: **0.6-0.8 under a clear sky**, falling with
+    increasing solar zenith as the path lengthens, and **roughly 0.1-0.3 under heavy
+    overcast**. The spectral SHAPE is informative too: Rayleigh scattering makes clear-sky
+    T rise steeply toward the red, while cloud is close to spectrally flat, so a flat T
+    is itself evidence of cloud.
+
+    What it is NOT: this is total (direct + diffuse) transmittance on a horizontal plane,
+    not an aerosol optical depth. Separating the direct beam from the diffuse sky needs a
+    shadowband or a collimated view, which this does not attempt. No Earth-Sun distance
+    correction is applied (F0 is the mean-distance value, +/-3.4 % annually).
+
+    Returns transmittance per band, dimensionless.
+    """
+    from .water import f0_solar
+
+    wl = np.asarray(wl, dtype=float)
+    ed = np.asarray(ed, dtype=float)
+    mu = np.cos(np.deg2rad(float(solar_zenith_deg)))
+    if mu <= 0:
+        raise ValueError("solar zenith %.1f deg puts the sun at or below the horizon"
+                         % solar_zenith_deg)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return ed / (f0_solar(wl) * mu)

@@ -181,3 +181,42 @@ class TestSolarIrradianceAndNlw:
         from giop.empirical import normalized_water_leaving_radiance as nlw
         v = nlw(np.array([443.0]), np.array([0.004]))[0] * 100.0   # to mW cm^-2 um^-1 sr^-1
         assert 0.2 < v < 3.0, v
+
+
+class TestAtmosphericTransmittance:
+    """Turning 'the sky looked clear' into a number, from a measured E_d."""
+
+    WL = np.array([412.0, 443, 490, 555, 670])
+
+    def test_recovers_an_imposed_transmittance(self):
+        from giop.empirical import atmospheric_transmittance as T
+        from giop.water import f0_solar
+        solz = 40.0
+        imposed = np.array([0.62, 0.66, 0.70, 0.75, 0.80])
+        ed = f0_solar(self.WL) * np.cos(np.deg2rad(solz)) * imposed
+        np.testing.assert_allclose(T(self.WL, ed, solz), imposed, rtol=1e-12)
+
+    def test_a_flat_spectrum_is_the_cloud_signature(self):
+        """Clear-sky T rises toward the red because Rayleigh weakens; cloud is flat.
+        The SHAPE is diagnostic, not just the level."""
+        from giop.empirical import atmospheric_transmittance as T
+        from giop.water import f0_solar
+        solz = 40.0
+        mu = np.cos(np.deg2rad(solz))
+        clear = T(self.WL, f0_solar(self.WL) * mu * np.array([.62, .66, .70, .75, .80]),
+                  solz)
+        cloud = T(self.WL, f0_solar(self.WL) * mu * 0.18, solz)
+        assert clear[-1] / clear[0] > 1.2
+        assert abs(cloud[-1] / cloud[0] - 1.0) < 1e-9
+
+    def test_overcast_level_is_far_below_clear(self):
+        from giop.empirical import atmospheric_transmittance as T
+        from giop.water import f0_solar
+        solz = 40.0
+        cloud = T(self.WL, f0_solar(self.WL) * np.cos(np.deg2rad(solz)) * 0.18, solz)
+        assert np.all(cloud < 0.35)
+
+    def test_sun_below_the_horizon_is_refused(self):
+        from giop.empirical import atmospheric_transmittance as T
+        with pytest.raises(ValueError, match="below the horizon"):
+            T(self.WL, np.ones_like(self.WL), 95.0)
