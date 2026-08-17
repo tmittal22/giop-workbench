@@ -128,24 +128,24 @@ def giop(wl, rrs, chl=0.2, cfg=None, sigma=None, **kwargs):
             "Restrict the inversion window, e.g. wl in [400, 700]."
         )
 
+    # sigma is on the ABOVE-water scale as supplied; the fit is done on subsurface
+    # r_rs, so propagate it through the same transform (G4a) to keep the weighting
+    # consistent with the residuals it divides.
+    sig_sub = None
+    if sigma is not None:
+        sig_sub = np.asarray(sigma, float) * (rin / np.where(rrs == 0, np.nan, rrs))
+        sig_sub = np.where(np.isfinite(sig_sub), sig_sub, np.nanmedian(sig_sub))
+
     spread = None
-    if cfg.inv == "fmin":
-        if cfg.fit_shapes:
-            x, converged, cst, sdg, eta, adgs, bbps, aphs = _invert_fmin_shapes(
-                wl, cfg, chl, rrs, rin, idx, aw, bbw, g0, g1
-            )
-        else:
-            x, converged, cst, spread = _invert_fmin(
-                rin, aw, bbw, adgs, bbps, aphs, g0, g1, chl, cfg.n_starts
-            )
+    if cfg.fit_shapes:
+        x, converged, cst, sdg, eta, adgs, bbps, aphs = _invert_shapes(
+            wl, cfg, chl, rrs, rin, idx, aw, bbw, g0, g1, sigma=sig_sub
+        )
+    elif cfg.inv == "fmin":
+        x, converged, cst, spread = _invert_fmin(
+            rin, aw, bbw, adgs, bbps, aphs, g0, g1, chl, cfg.n_starts
+        )
     elif cfg.inv == "bounded":
-        # sigma is on the ABOVE-water scale as supplied; the fit is done on subsurface
-        # r_rs, so propagate it through the same transform (G4a) to keep the weighting
-        # consistent with the residuals it divides.
-        sig_sub = None
-        if sigma is not None:
-            sig_sub = np.asarray(sigma, float) * (rin / np.where(rrs == 0, np.nan, rrs))
-            sig_sub = np.where(np.isfinite(sig_sub), sig_sub, np.nanmedian(sig_sub))
         x, converged, cst, cov_b, rails = _invert_bounded(
             rin, aw, bbw, adgs, bbps, aphs, g0, g1, chl, sigma=sig_sub
         )
@@ -314,38 +314,90 @@ def _invert_lmi(rin, aw, bbw, adgs, bbps, aphs, g0, g1):
     return x, True, resid
 
 
-def _invert_fmin_shapes(wl, cfg, chl, rrs, rin, idx, aw, bbw, g0, g1):
+#: Search box for the two shape parameters when ``fit_shapes`` is on.
+SDG_BOUNDS = (0.005, 0.03)
+ETA_BOUNDS = (-1.0, 4.0)
+
+
+def _invert_shapes(wl, cfg, chl, rrs, rin, idx, aw, bbw, g0, g1, sigma=None):
     """Extension, off by default: also fit S_dg and eta. THEORY.md sect. 6.3.
 
     Five parameters (M_dg, M_bp, M_phi, S_dg, eta). This is **not** GIOP-DC. It is
     provided because hyperspectral field data is the one case where the extra shape
     freedom might be supportable, and because prescribing shapes is the largest
     structural assumption in the model (A2, A3).
+
+    Solved as a **profile**, not as a joint 5-D simplex. At each trial (S_dg, eta) the
+    three amplitudes are solved by the configured amplitude solver, and only the two
+    shape parameters are searched. This matters, and the earlier joint version is why:
+
+    * The amplitude subproblem is well conditioned and bounded; the shape subproblem is
+      not. Searching them together made the whole thing as badly conditioned as its
+      worst direction.
+    * The old start was ``[0.01, 0.001, chl, ...]`` — the upstream oligotrophic default,
+      which on turbid water is ~100x from the solution in two of five coordinates, so
+      Nelder-Mead's 5 %-relative initial simplex had to travel 100x its own size.
+    * The old box was enforced by ``return 1e6``, a cliff ~1e11 above the cost at the
+      solution, so the simplex collapsed onto the barrier and railed BOTH shapes.
+
+    Measured on a real turbid field spectrum (301 bands, 400-700 nm), the joint version
+    returned chi2_nu = 2431 against the fixed-shape 74.5, i.e. **35x worse than the
+    special case nested inside its own search box** — an optimiser failure that reads as
+    "the data cannot determine the shapes". The profile version returns a cost that is
+    <= the fixed-shape cost by construction, because the configured (S_dg, eta) is one of
+    its starts. ``tests/test_fit_shapes_nesting.py`` pins that.
+
+    ``cfg.n_starts`` is honoured here: it sets the density of the (S_dg, eta) start grid.
+    The old joint version silently ignored it.
+
+    The inner amplitude solve is ``_invert_bounded`` on **both** paths, including
+    ``inv='fmin'``. With ``sigma=None`` that minimises the same unweighted sum of squares
+    as ``_m.cost``, so the objective is unchanged -- what changes is that it is solved by
+    trust-region-reflective to ftol 1e-12 instead of by a simplex whose GIOP-DC
+    ``fatol=1e-6`` is ~10 % of the cost at the solution. A profile needs its inner solve
+    converged well below the outer tolerance or the outer surface is pure numerical
+    noise, and that is not something the upstream tolerances were chosen for.
     """
     _, _, aphs0, sdg0, eta0 = _m.eigenvectors(wl, cfg, chl, rrs, rin, idx)
 
-    def unpack(p):
-        return p[:3], float(p[3]), float(p[4])
-
-    def obj(p):
-        amps, sdg, eta = unpack(p)
-        if not (0.005 <= sdg <= 0.03) or not (-1.0 <= eta <= 4.0):
-            return 1e6
+    def solve_at(sdg, eta):
         adgs = np.exp(-sdg * (wl - 443.0))
         bbps = (443.0 / wl) ** eta
-        return _m.cost(amps, rin, aw, bbw, adgs, bbps, aphs0, g0, g1)
+        x, ok, cost, _, _ = _invert_bounded(rin, aw, bbw, adgs, bbps, aphs0,
+                                            g0, g1, chl, sigma=sigma)
+        if not ok or not np.isfinite(cost):
+            return None, np.inf, adgs, bbps
+        return x, float(cost), adgs, bbps
 
-    p0 = np.array([0.01, 0.001, float(chl), sdg0, eta0])
-    res = minimize(
-        obj, p0, method="Nelder-Mead",
-        options=dict(xatol=1e-8, fatol=1e-12, maxfev=int(2e5), maxiter=int(1e4)),
-    )
-    amps, sdg, eta = unpack(res.x)
-    adgs = np.exp(-sdg * (wl - 443.0))
-    bbps = (443.0 / wl) ** eta
-    if res.status != 0:
-        return np.full(3, FILL), False, float(res.fun), sdg, eta, adgs, bbps, aphs0
-    return amps, True, float(res.fun), sdg, eta, adgs, bbps, aphs0
+    # A finite penalty, not a cliff: the profile is only evaluated inside the box (the
+    # optimiser is given bounds), so this is reached only when the inner solve fails.
+    def prof(p):
+        _, cost, _, _ = solve_at(float(p[0]), float(p[1]))
+        return cost if np.isfinite(cost) else 1e30
+
+    n = max(int(cfg.n_starts), 1)
+    ng = 3 if n <= 1 else min(2 + n, 8)
+    grid = [(float(s), float(e))
+            for s in np.linspace(*SDG_BOUNDS, ng)
+            for e in np.linspace(*ETA_BOUNDS, ng)]
+    # The configured shapes FIRST, so the fixed-shape solution is always in the pool and
+    # the free fit can never come back worse than the fit it generalises.
+    starts = [(float(sdg0), float(eta0))] + grid
+    scored = sorted(((prof(s), s) for s in starts), key=lambda t: t[0])
+
+    best = (scored[0][0], scored[0][1])
+    for _, s in scored[:2 if n <= 1 else 3]:
+        res = minimize(prof, np.array(s), method="Nelder-Mead",
+                       bounds=(SDG_BOUNDS, ETA_BOUNDS),
+                       options=dict(xatol=1e-7, fatol=1e-14, maxfev=2000))
+        if np.isfinite(res.fun) and res.fun < best[0]:
+            best = (float(res.fun), (float(res.x[0]), float(res.x[1])))
+
+    sdg, eta = best[1]
+    amps, cost, adgs, bbps = solve_at(sdg, eta)
+    if amps is None:
+        return np.full(3, FILL), False, float(best[0]), sdg, eta, adgs, bbps, aphs0
+    return amps, True, float(cost), sdg, eta, adgs, bbps, aphs0
 
 
 # --------------------------------------------------------------------------------
