@@ -97,6 +97,14 @@ class GiopConfig:
                 "MATLAB returns Inf/NaN without complaint. Use inv='fmin' with "
                 "fq='morel', or fq='gordon' with inv='lmi'."
             )
+        if self.fit_shapes and self.inv == "bounded":
+            raise ConfigurationError(
+                "fit_shapes=True is not implemented for inv='bounded'. It is wired "
+                "only into the 'fmin' path, and silently returning a FIXED-shape "
+                "result would look like a successful shape fit. Use inv='fmin' with "
+                "fit_shapes=True, or inv='bounded' with fixed shapes and report S_dg "
+                "and eta as assumptions."
+            )
         if self.fit_shapes and self.inv == "lmi":
             raise ConfigurationError(
                 "fit_shapes=True is nonlinear in S_dg and eta, so it cannot be solved "
